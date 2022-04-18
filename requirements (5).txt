@@ -1,0 +1,8 @@
+requests
+git+http://github.com/pyrogram/pyrogram@master
+TgCrypto
+python-dotenv
+hachoir
+Pillow
+hyper
+ffmpeg-python
