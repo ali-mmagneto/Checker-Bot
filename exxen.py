@@ -88,11 +88,8 @@ substitutions = {
 
 @Client.on_message(filters.command('combo'))
 async def cookie(client, message):
-    try:
     if not message.reply_to_message:
         await message.reply_text("Reply combo.txt", quote=True)
-    except Exception as e:
-        Logger.warn(e)
         return
     file_name = message.reply_to_message.document.file_name
     filename, file_extension = os.path.splitext(file_name)
