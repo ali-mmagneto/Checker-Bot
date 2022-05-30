@@ -1,5 +1,5 @@
 requests
-git+http://github.com/pyrogram/pyrogram@master
+pyrogram==1.4.16
 TgCrypto
 python-dotenv
 hachoir
