@@ -104,7 +104,6 @@ async def cookie(client, message):
 
 @Client.on_message(filters.command(['start']))
 async def help_message(app, message):
-    try:
     say = 0
     dsy = ""
     if 1 == 1:
@@ -116,9 +115,6 @@ async def help_message(app, message):
                 say) + " Files found in your Combo folder.")
 
         await message.reply("Choose Combo: ", reply_markup=ForceReply(True))
-     except Exception as f:
-         Logger.warn(f)
-
 
 @Client.on_message(filters.reply)
 async def api_connect(client, message):
