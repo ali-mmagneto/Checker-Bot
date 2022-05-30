@@ -88,6 +88,7 @@ substitutions = {
 
 @Client.on_message(filters.command('combo'))
 async def cookie(client, message):
+try:
     if not message.reply_to_message:
         await message.reply_text("Reply combo.txt", quote=True)
         return
@@ -101,10 +102,13 @@ async def cookie(client, message):
         await message.reply_text(f"Combo eklendi.\n{file_name}", quote=True)
     else:
         await message.reply_text("Get combo", quote=True)
+except Exception as e:
+    await client.send_message(str(e))
 
 
 @Client.on_message(filters.command(['start']))
 async def help_message(app, message):
+try:
     say = 0
     dsy = ""
     if 1 == 1:
@@ -116,6 +120,8 @@ async def help_message(app, message):
                 say) + " Files found in your Combo folder.")
 
         await message.reply("Choose Combo: ", reply_markup=ForceReply(True))
+except Exception as f:
+    await client.send_message(str(f)) 
 
 
 @Client.on_message(filters.reply)
