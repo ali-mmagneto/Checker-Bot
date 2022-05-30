@@ -12,6 +12,33 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ForceRepl
 from pyrogram.errors import FloodWait, MessageNotModified
 from pyrogram import Client, filters
 
+import logging
+logging.basicConfig(level = logging.DEBUG,
+                     format="%(asctime)s - %(name)s - %(message)s - %(levelname)s")
+
+logger = logging.getLogger(__name__)
+
+import pyrogram
+import os
+
+from config import BOT_TOKEN, APP_ID, API_HASH
+
+logging.getLogger('pyrogram').setLevel(logging.WARNING)
+
+if __name__ == '__main__':
+
+    if not os.path.isdir('combo'):
+        os.mkdir('combo')
+
+    plugins = dict(root='plugins')
+
+    app = pyrogram.Client(
+        'Combo',
+        bot_token=BOT_TOKEN,
+        api_id=APP_ID,
+        api_hash=API_HASH
+    )
+
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 session = requests.Session()
 
@@ -227,3 +254,4 @@ async def api_connect(client, message):
                 f"**✓ İşlem Başarıyla Tamamlandı**" + "\n"
                 f"➤ **Total:** `{total}` **Hit:** `{hit}` **Custom:** `{custom}`"
             )
+app.run()
