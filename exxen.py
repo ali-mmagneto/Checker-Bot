@@ -222,8 +222,3 @@ async def api_connect(client, message):
             await message.reply_text("**✓ İşlem Başarıyla Tamamlandı**" + "\n" + "➤ Total: " + str(total) + " Hit: " + str(hit) + " Custom: " + str(custom))
 
 app.run()
-
-
-
-
-
