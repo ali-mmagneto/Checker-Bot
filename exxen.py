@@ -91,6 +91,8 @@ async def cookie(client, message):
     try:
     if not message.reply_to_message:
         await message.reply_text("Reply combo.txt", quote=True)
+    except Exception as e:
+        Logger.warn(e)
         return
     file_name = message.reply_to_message.document.file_name
     filename, file_extension = os.path.splitext(file_name)
@@ -102,9 +104,6 @@ async def cookie(client, message):
         await message.reply_text(f"Combo eklendi.\n{file_name}", quote=True)
     else:
         await message.reply_text("Get combo", quote=True)
-    except Exception as e:
-        Logger.warn(e)
-
 
 @Client.on_message(filters.command(['start']))
 async def help_message(app, message):
@@ -140,8 +139,8 @@ async def api_connect(client, message):
                 say = say + 1
                 if dsyno == say:
                     txt = (directory + files)
-        except Exception as f:
-            print(f)
+        except Exception as c:
+            print(c)
             await message.reply_text(f"**Error :** {f}", reply_to_message_id=message.message_id)
         try:
             for mp in open(txt, 'r', encoding="utf8"):
